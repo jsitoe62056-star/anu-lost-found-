@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ANU Lost and Found – Prototype</title>
+<style>
+:root{--bg:#f7f5f1;--card:#fff;--ink:#1b2a41;--mute:#5d6775;--line:#dfe3e8;--acc:#c9a24a;--pri:#1b2a41;--onpri:#fff;--ok:#1f7a4d;--bad:#b3341f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161c;--card:#1b222b;--ink:#eef1f5;--mute:#9aa5b4;--line:#2d3743;--pri:#c9a24a;--onpri:#12161c;--ok:#4cc38a;--bad:#ff7b66}}
+:root[data-theme="dark"]{--bg:#12161c;--card:#1b222b;--ink:#eef1f5;--mute:#9aa5b4;--line:#2d3743;--pri:#c9a24a;--onpri:#12161c;--ok:#4cc38a;--bad:#ff7b66}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:3px solid var(--acc);padding-bottom:10px;margin-bottom:14px}
+h1{font-size:20px;margin:0}h2{font-size:17px;margin:0 0 10px}
+.mute{color:var(--mute);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px}
+button.on,button.p{background:var(--pri);color:var(--onpri);border-color:var(--pri)}
+button.ok{border-color:var(--ok);color:var(--ok)}button.no{border-color:var(--bad);color:var(--bad)}
+input,select,textarea{font:inherit;width:100%;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:10px}
+label{font-size:13px;color:var(--mute);display:block;margin-bottom:3px}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);margin-right:4px}
+.msg{background:var(--acc);color:#1b2a41;padding:8px 12px;border-radius:8px;margin-bottom:12px}
+.bar{height:14px;background:var(--pri);border-radius:4px;min-width:3px}
+.sc{overflow-x:auto}
+</style></head><body><div class="wrap" id="app"></div>
+<script>
+const CATS=["Phone","ID/Cards","Bag","Keys","Clothing","Electronics","Other"];
+const STAT=["Reported","Claim pending","Claimed","Returned","Unresolved"];
+const S={user:null,tab:"",q:"",cat:"All",type:"All",claiming:null,msg:"",nid:10,
+items:[
+{id:1,type:"found",name:"Black Samsung phone",cat:"Phone",loc:"Library",date:"2026-11-10",desc:"Cracked corner, blue case",status:"Reported",by:"Security Office"},
+{id:2,type:"found",name:"Student ID card",cat:"ID/Cards",loc:"Cafeteria",date:"2026-11-11",desc:"Name partly worn",status:"Reported",by:"Staff member"},
+{id:3,type:"lost",name:"Grey backpack",cat:"Bag",loc:"Lecture Hall 2",date:"2026-11-09",desc:"Scientific calculator inside",status:"Reported",by:"Mary"},
+{id:4,type:"found",name:"Car keys",cat:"Keys",loc:"Parking",date:"2026-11-05",desc:"Toyota key with red tag",status:"Returned",by:"Security Office"}],
+claims:[],accts:[{name:"admin",pass:"admin123",role:"admin",kind:"Administrator"},{name:"student",pass:"student123",role:"user",kind:"Student"},{name:"staff",pass:"staff123",role:"user",kind:"Staff"}]};
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const item=id=>S.items.find(i=>i.id===id);
+const isAdmin=()=>S.user&&S.user.role==="admin";
+const opts=(a,sel)=>a.map(x=>`<option${x===sel?" selected":""}>${x}</option>`).join("");
+
+function render(){
+ const a=document.getElementById("app");
+ if(!S.user){a.innerHTML=`<header><h1>ANU Lost and Found</h1></header>
+ ${S.msg?`<div class="msg">${esc(S.msg)}</div>`:""}
+ <div class="card"><h2>Sign in or create an account</h2>
+ <div class="g"><div><label>Your name</label><input id="nm" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+ <div><label>Password</label><input id="pw" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+ <div><label>Account type (for new accounts)</label><select id="kd"><option>Student</option><option>Staff</option></select></div></div>
+ <button class="p" data-a="login">Sign in</button>
+ <button data-a="reg">Create student / staff account</button></div>`;S.msg="";return}
+ const tabs=isAdmin()?[["claims","Claims to review"],["items","Manage items"],["reports","Reports"]]:[["report","Report an item"],["search","Search items"],["mine","My claims"]];
+ if(!S.tab||!tabs.some(t=>t[0]===S.tab))S.tab=tabs[0][0];
+ a.innerHTML=`<header><div><h1>ANU Lost and Found</h1><span class="mute">${esc(S.user.name)} · ${S.user.kind}</span></div><button data-a="out">Sign out</button></header>
+ ${S.msg?`<div class="msg">${esc(S.msg)}</div>`:""}
+ <div class="tabs">${tabs.map(t=>`<button class="${S.tab===t[0]?"on":""}" data-a="tab" data-t="${t[0]}">${t[1]}</button>`).join("")}</div>
+ ${V[S.tab]()}`;S.msg="";
+}
+const V={
+report:()=>`<div class="card"><h2>Report a lost or found item</h2>
+ <div class="g"><div><label>Type</label><select id="ty"><option value="lost">I lost something</option><option value="found">I found something</option></select></div>
+ <div><label>Item name</label><input id="nm2"></div><div><label>Category</label><select id="ct">${opts(CATS)}</select></div>
+ <div><label>Where</label><input id="lc"></div><div><label>Date</label><input id="dt" type="date"></div></div>
+ <label>Description</label><textarea id="ds" rows="2"></textarea><p><button class="p" data-a="add">Submit report</button></p></div>`,
+search:()=>{const r=S.items.filter(i=>(S.type==="All"||i.type===S.type)&&(S.cat==="All"||i.cat===S.cat)&&(i.name+i.desc+i.loc).toLowerCase().includes(S.q.toLowerCase()));
+ return `<div class="card"><h2>Search items</h2><div class="g"><div><label>Keyword</label><input id="q" value="${esc(S.q)}"></div>
+ <div><label>Category</label><select id="fc">${opts(["All",...CATS],S.cat)}</select></div>
+ <div><label>Type</label><select id="ft">${opts(["All","lost","found"],S.type)}</select></div></div>
+ ${r.map(i=>`<div class="row"><div><b>${esc(i.name)}</b> <span class="tag">${i.type}</span><span class="tag">${i.status}</span><br><span class="mute">${esc(i.cat)} · ${esc(i.loc)} · ${esc(i.date)}<br>${esc(i.desc)}</span>
+ ${S.claiming===i.id?`<div style="margin-top:8px"><label>Proof of ownership (describe a detail only the owner knows)</label><input id="pf"><p><button class="p" data-a="claim" data-i="${i.id}">Send claim</button></p></div>`:""}</div>
+ ${i.type==="found"&&i.status==="Reported"&&S.claiming!==i.id?`<button data-a="startclaim" data-i="${i.id}">This is mine</button>`:""}</div>`).join("")||'<p class="mute">No items match.</p>'}</div>`},
+mine:()=>{const r=S.claims.filter(c=>c.by===S.user.name);
+ return `<div class="card"><h2>My claims</h2>${r.map(c=>`<div class="row"><div><b>${esc(item(c.item).name)}</b><br><span class="mute">Proof: ${esc(c.proof)}</span></div><span class="tag">${c.status}</span></div>`).join("")||'<p class="mute">You have not claimed anything yet.</p>'}</div>`},
+claims:()=>{const r=S.claims.filter(c=>c.status==="Pending");
+ return `<div class="card"><h2>Claims waiting for verification</h2>${r.map(c=>`<div class="row"><div><b>${esc(item(c.item).name)}</b> claimed by ${esc(c.by)}<br><span class="mute">Proof given: ${esc(c.proof)}<br>Item description: ${esc(item(c.item).desc)}</span></div>
+ <div><button class="ok" data-a="dec" data-c="${c.id}" data-d="Approved">Approve</button> <button class="no" data-a="dec" data-c="${c.id}" data-d="Rejected">Reject</button></div></div>`).join("")||'<p class="mute">No pending claims.</p>'}</div>`},
+items:()=>`<div class="card sc"><h2>All items</h2>${S.items.map(i=>`<div class="row"><div><b>${esc(i.name)}</b> <span class="tag">${i.type}</span><br><span class="mute">${esc(i.loc)} · ${esc(i.date)} · by ${esc(i.by)}</span></div>
+ <select data-a="st" data-i="${i.id}" style="width:auto">${opts(STAT,i.status)}</select></div>`).join("")}</div>`,
+reports:()=>{const n=[["Lost reported",S.items.filter(i=>i.type==="lost").length],["Found reported",S.items.filter(i=>i.type==="found").length],...["Claimed","Returned","Unresolved"].map(s=>[s,S.items.filter(i=>i.status===s).length])];const m=Math.max(1,...n.map(x=>x[1]));
+ return `<div class="card"><h2>Summary report</h2>${n.map(x=>`<div class="row" style="align-items:center"><span style="width:130px">${x[0]}</span><div style="flex:1"><div class="bar" style="width:${x[1]/m*100}%"></div></div><b>${x[1]}</b></div>`).join("")}<p class="mute">Total items: ${S.items.length} · Pending claims: ${S.claims.filter(c=>c.status==="Pending").length}</p></div>`}
+};
+const v=id=>document.getElementById(id).value.trim();
+document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;
+ if(a==="login"||a==="reg"){const u=v("nm"),p=document.getElementById("pw").value;
+  if(!u||!p){S.msg="Enter a username and a password."}
+  else if(a==="reg"){if(S.accts.some(x=>x.name.toLowerCase()===u.toLowerCase()))S.msg="That username is already taken.";
+   else if(p.length<4)S.msg="The password must have at least 4 characters.";
+   else{const n={name:u,pass:p,role:"user",kind:v("kd")};S.accts.push(n);S.user=n;S.tab="";S.msg="Account created. Welcome!"}}
+  else{const f=S.accts.find(x=>x.name.toLowerCase()===u.toLowerCase()&&x.pass===p);if(f){S.user=f;S.tab=""}else if(S.accts.some(x=>x.name.toLowerCase()===u.toLowerCase()))S.msg="Wrong password. Please try again.";else if(p.length<4)S.msg="The password must have at least 4 characters.";else{const n={name:u,pass:p,role:"user",kind:v("kd")};S.accts.push(n);S.user=n;S.tab="";S.msg="Welcome! Your account was created."}}}
+ else if(a==="out"){S.user=null}
+ else if(a==="tab"){S.tab=b.dataset.t}
+ else if(a==="add"){if(!v("nm2")||!v("lc")){S.msg="Please fill in the item name and place.";return render()}
+  S.items.unshift({id:S.nid++,type:v("ty"),name:v("nm2"),cat:v("ct"),loc:v("lc"),date:v("dt")||"2026-11-14",desc:v("ds"),status:"Reported",by:S.user.name});S.msg="Report submitted. It is now visible to the administrator.";S.tab="search"}
+ else if(a==="startclaim"){S.claiming=+b.dataset.i}
+ else if(a==="claim"){const p=v("pf");if(!p){S.msg="Proof of ownership is required.";return render()}
+  const i=item(+b.dataset.i);S.claims.push({id:S.nid++,item:i.id,by:S.user.name,proof:p,status:"Pending"});i.status="Claim pending";S.claiming=null;S.msg="Claim sent. The administrator will verify it.";S.tab="mine"}
+ else if(a==="dec"){const c=S.claims.find(x=>x.id===+b.dataset.c);c.status=b.dataset.d;item(c.item).status=c.status==="Approved"?"Claimed":"Reported";S.msg="Claim "+c.status.toLowerCase()+"."}
+ render()});
+document.addEventListener("change",e=>{const t=e.target,a=t.dataset.a;
+ if(a==="st"){item(+t.dataset.i).status=t.value;S.msg="Status updated.";return render()}
+ if(t.id==="fc"){S.cat=t.value;render()}if(t.id==="ft"){S.type=t.value;render()}});
+document.addEventListener("input",e=>{if(e.target.id==="q"){S.q=e.target.value;const p=e.target.selectionStart;render();const q=document.getElementById("q");q.focus();q.setSelectionRange(p,p)}});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="pw")document.querySelector("[data-a=login]").click()});
+render();
+</script></body></html>
